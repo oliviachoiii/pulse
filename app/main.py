@@ -3,7 +3,7 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI
-
+from fastapi.responses import JSONResponse
 
 app = FastAPI(
     title="Project Pulse",
@@ -34,18 +34,36 @@ async def health() -> dict[str, str]:
 
 
 @app.get("/status")
-async def status() -> dict[str, list[dict[str, Any]]]:
-    results = []
+async def status():
+    results: list[dict[str, Any]] = []
+
+    targets = get_targets()
+
+    if not targets:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "message": "No target URLs configured.",
+                "services": [],
+            },
+        )
 
     async with httpx.AsyncClient(timeout=5.0) as client:
-        for url in get_targets():
+        for url in targets:
             try:
                 response = await client.get(url)
+
+                service_status = (
+                    "up"
+                    if response.is_success
+                    else "degraded"
+                )
 
                 results.append(
                     {
                         "url": url,
-                        "status": "up" if response.is_success else "degraded",
+                        "status": service_status,
                         "status_code": response.status_code,
                     }
                 )
@@ -59,4 +77,18 @@ async def status() -> dict[str, list[dict[str, Any]]]:
                     }
                 )
 
-    return {"services": results}
+    all_healthy = all(
+        service["status"] == "up"
+        for service in results
+    )
+
+    overall_status = "healthy" if all_healthy else "unhealthy"
+    response_status_code = 200 if all_healthy else 503
+
+    return JSONResponse(
+        status_code=response_status_code,
+        content={
+            "status": overall_status,
+            "services": results,
+        },
+    )
