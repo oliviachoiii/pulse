@@ -58,8 +58,8 @@ jobs:
 
       - name: Show container logs on failure
         if: failure()
-        run: docker logs pulse
+        run: docker logs pulse || true
 
       - name: Stop container
         if: always()
-        run: docker rm -f pulse
+        run: docker rm -f pulse || true
