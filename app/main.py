@@ -13,10 +13,7 @@ app = FastAPI(
 
 
 def get_targets() -> list[str]:
-    raw_targets = os.getenv(
-        "TARGET_URLS",
-        "https://example.com,https://github.com",
-    )
+    raw_targets = os.getenv("TARGET_URLS", "",)
 
     return [
         url.strip()
